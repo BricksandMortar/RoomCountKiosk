@@ -111,16 +111,33 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                     Guid kioskDeviceType = Rock.SystemGuid.DefinedValue.DEVICE_TYPE_CHECKIN_KIOSK.AsGuid();
                     using ( var rockContext = new RockContext() )
                     {
-                        var kiosks = new DeviceService( rockContext )
+                        var deviceService = new DeviceService( rockContext );
+                        var kiosks = deviceService
                             .Queryable().AsNoTracking()
                             .Where( d => d.DeviceType.Guid.Equals( kioskDeviceType ) )
-                            .OrderBy( d => d.Name )
-                            .Select( d => new
+                            .OrderBy( d => d.Name );
+                        ddlKiosk.DataSource = kiosks;
+                        ddlKiosk.DataTextField = "Name";
+                        ddlKiosk.DataValueField = "Id";
+                        ddlKiosk.DataBind();
+                        if(CurrentKioskId != null )
+                        {
+                            ddlKiosk.SetValue( CurrentKioskId.Value );
+                        }
+
+                        var kiosk = deviceService.Get( ddlKiosk.SelectedValue.AsInteger() );
+                        if (kiosk != null )
+                        {
+                            // ARRAN & TAYLOR: Do we want to include child locations or not? 
+                            ddlLocation.DataSource = kiosk.Locations;
+                            ddlLocation.DataTextField = "Name";
+                            ddlLocation.DataValueField = "Id";
+                            ddlLocation.DataBind();
+                            if(CurrentLocationId != null )
                             {
-                                d.Id,
-                                d.Name
-                            } )
-                            .ToList();
+                                ddlLocation.SetValue( CurrentLocationId );
+                            }
+                        }
                     }
                 }
             }
@@ -322,10 +339,34 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                 return;
             }
 
+            CurrentKioskId = ddlKiosk.SelectedValue.AsIntegerOrNull();
             CurrentLocationId = ddlLocation.SelectedValue.AsIntegerOrNull();
             SaveState();
 
             NavigateToNextPage();
+        }
+
+        protected void ddlKiosk_SelectedIndexChanged( object sender, EventArgs e )
+        {
+            var device = new DeviceService( new RockContext() ).Get( ddlKiosk.SelectedValue.AsInteger() );
+            if ( device != null )
+            {
+                CurrentKioskId = ddlKiosk.SelectedValue.AsInteger();
+                BindLocationDropdown();
+            }
+        }
+
+        protected void BindLocationDropdown()
+        {
+            if ( CurrentKioskId != null )
+            {
+                var device = new DeviceService( new RockContext() ).Get( CurrentKioskId.Value );
+                if ( device != null )
+                {
+                    ddlLocation.DataSource = device.Locations;
+                    ddlLocation.DataBind();
+                }
+            }
         }
 
         /// <summary>
