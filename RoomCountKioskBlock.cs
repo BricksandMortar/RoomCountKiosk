@@ -23,7 +23,14 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
             protected int? CurrentKioskId { get; set; }
 
             protected int? CurrentLocationId { get; set; }
-        
+
+        /// <summary>
+        /// Gets or sets a value indicating whether [manager logged in].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [manager logged in]; otherwise, <c>false</c>.
+        /// </value>
+        protected bool ManagerLoggedIn { get; set; }
 
             /// <summary>
             /// Holds cookie names shared across certain check-in blocks.

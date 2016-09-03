@@ -24,7 +24,7 @@
         <div class="checkin-scroll-panel">
             <div class="scroller">
                 <Rock:RockDropDownList ID="ddlKiosk" runat="server" CssClass="input-xlarge" Label="Kiosk Device" OnSelectedIndexChanged="ddlKiosk_SelectedIndexChanged" AutoPostBack="true" DataTextField="Name" DataValueField="Id" />
-                <Rock:RockDropDownList ID="ddlLocation" runat="server" CssClass="input-xlarge" Label="Location"/>
+                <Rock:RockDropDownList ID="ddlLocation" runat="server" CssClass="input-xlarge" Label="Location" OnSelectedIndexChanged="ddlLocation_SelectedIndexChanged" AutoPostBack="true" />
             </div>
         </div>
 

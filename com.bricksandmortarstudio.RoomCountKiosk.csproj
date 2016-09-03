@@ -41,12 +41,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Plugins\com_bricksandmortarstudio\SelectLocation.ascx.cs">
-      <DependentUpon>SelectLocation.ascx</DependentUpon>
+    <Compile Include="Plugins\com_bricksandmortarstudio\LocationCount.ascx.cs">
+      <DependentUpon>LocationCount.ascx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
     </Compile>
-    <Compile Include="Plugins\com_bricksandmortarstudio\Welcome.ascx.cs">
-      <DependentUpon>Welcome.ascx</DependentUpon>
+    <Compile Include="Plugins\com_bricksandmortarstudio\SelectLocation.ascx.cs">
+      <DependentUpon>SelectLocation.ascx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
     </Compile>
     <Compile Include="RoomCountKioskBlock.cs">
@@ -55,15 +55,14 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Plugins\com_bricksandmortarstudio\LocationCount.ascx" />
+    <Content Include="Plugins\com_bricksandmortarstudio\SelectLocation.ascx" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Rock\Rock.csproj">
       <Project>{185a31d7-3037-4dae-8797-0459849a84bd}</Project>
       <Name>Rock</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="Plugins\com_bricksandmortarstudio\SelectLocation.ascx" />
-    <Content Include="Plugins\com_bricksandmortarstudio\Welcome.ascx" />
-    <Content Include="Plugins\readme.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
