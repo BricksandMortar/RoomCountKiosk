@@ -1,5 +1,5 @@
 ﻿// <copyright>
-// Copyright by the Spark Development Network
+// Copyright by Bricks and Mortar
 //
 // Licensed under the Rock Community License (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
     [DisplayName( "Select Location" )]
     [Category( "Bricks and Mortar Studio" )]
     [Description( "Check-in Administration block" )]
-    [LinkedPage("Location Page", "The page that provides information about the attendees of the location", true)]
+    [LinkedPage( "Location Page", "The page that provides information about the attendees of the location", true )]
     [BooleanField( "Enable Location Sharing", "If enabled, the block will attempt to determine the kiosk's location via location sharing geocode.", false, "Geo Location", 6 )]
     [IntegerField( "Time to Cache Kiosk GeoLocation", "Time in minutes to cache the coordinates of the kiosk. A value of zero (0) means cache forever. Default 20 minutes.", false, 20, "Geo Location", 7 )]
     [BooleanField( "Enable Kiosk Match By Name", "Enable a kiosk match by computer name by doing reverseIP lookup to get computer name based on IP address", false, "", 8, "EnableReverseLookup" )]
@@ -105,22 +105,39 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                 ", this.Page.ClientScript.GetPostBackEventReference( lbRefresh, "" ) );
                         phScript.Controls.Add( new LiteralControl( script ) );
                     }
-                    
+
 
                     //TODO Change this to your new kiosk type
                     Guid kioskDeviceType = Rock.SystemGuid.DefinedValue.DEVICE_TYPE_CHECKIN_KIOSK.AsGuid();
                     using ( var rockContext = new RockContext() )
                     {
-                        var kiosks = new DeviceService( rockContext )
+                        var deviceService = new DeviceService( rockContext );
+                        var kiosks = deviceService
                             .Queryable().AsNoTracking()
                             .Where( d => d.DeviceType.Guid.Equals( kioskDeviceType ) )
-                            .OrderBy( d => d.Name )
-                            .Select( d => new
+                            .OrderBy( d => d.Name );
+                        ddlKiosk.DataSource = kiosks.ToList();
+                        ddlKiosk.DataTextField = "Name";
+                        ddlKiosk.DataValueField = "Id";
+                        ddlKiosk.DataBind();
+                        if ( CurrentKioskId != null )
+                        {
+                            ddlKiosk.SetValue( CurrentKioskId.Value );
+                        }
+
+                        var kiosk = deviceService.Get( ddlKiosk.SelectedValue.AsInteger() );
+                        if ( kiosk != null )
+                        {
+                            // ARRAN & TAYLOR: Do we want to include child locations or not? 
+                            ddlLocation.DataSource = kiosk.Locations;
+                            ddlLocation.DataTextField = "Name";
+                            ddlLocation.DataValueField = "Id";
+                            ddlLocation.DataBind();
+                            if ( CurrentLocationId != null )
                             {
-                                d.Id,
-                                d.Name
-                            } )
-                            .ToList();
+                                ddlLocation.SetValue( CurrentLocationId );
+                            }
+                        }
                     }
                 }
             }
@@ -132,7 +149,7 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
 
         private void NavigateToNextPage()
         {
-            NavigateToLinkedPage( "LocationPage", new Dictionary<string, string>() { { "LocationId", ddlLocation.SelectedValue } } );
+            NavigateToLinkedPage( "LocationPage", new Dictionary<string, string>() { { "DeviceId", ddlKiosk.SelectedValue }, { "LocationId", ddlLocation.SelectedValue } } );
         }
 
         /// <summary>
@@ -322,10 +339,34 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                 return;
             }
 
+            CurrentKioskId = ddlKiosk.SelectedValue.AsIntegerOrNull();
             CurrentLocationId = ddlLocation.SelectedValue.AsIntegerOrNull();
             SaveState();
 
             NavigateToNextPage();
+        }
+
+        protected void ddlKiosk_SelectedIndexChanged( object sender, EventArgs e )
+        {
+            var device = new DeviceService( new RockContext() ).Get( ddlKiosk.SelectedValue.AsInteger() );
+            if ( device != null )
+            {
+                CurrentKioskId = ddlKiosk.SelectedValue.AsInteger();
+                BindLocationDropdown();
+            }
+        }
+
+        protected void BindLocationDropdown()
+        {
+            if ( CurrentKioskId != null )
+            {
+                var device = new DeviceService( new RockContext() ).Get( CurrentKioskId.Value );
+                if ( device != null )
+                {
+                    ddlLocation.DataSource = device.Locations;
+                    ddlLocation.DataBind();
+                }
+            }
         }
 
         /// <summary>
@@ -402,7 +443,6 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
             return null;
         }
 
-
         private List<GroupTypeCache> GetDescendentGroupTypes( GroupTypeCache groupType, List<int> recursionControl = null )
         {
             var results = new List<GroupTypeCache>();
@@ -460,16 +500,5 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
         }
 
         #endregion
-
-
-        protected void ddlKiosk_SelectedIndexChanged( object sender, EventArgs e )
-        {
-
-        }
-
-        protected void ddlLocation_SelectedIndexChanged( object sender, EventArgs e )
-        {
-
-        }
     }
 }

@@ -1,5 +1,5 @@
-﻿// <copyright>
-// Copyright by the Spark Development Network
+// <copyright>
+// Copyright by Bricks and Mortar
 //
 // Licensed under the Rock Community License (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,140 +21,466 @@ using System.Linq;
 using System.Web.UI;
 using System.Web.UI.HtmlControls;
 using System.Web.UI.WebControls;
-
 using Rock;
+using Rock.Attribute;
 using Rock.CheckIn;
+using Rock.Data;
 using Rock.Model;
+using Rock.Security;
+using Rock.Web.Cache;
+using Rock.Web.UI.Controls;
 
 namespace com.bricksandmortarstudio.RoomCountKiosk
 {
-    [DisplayName("Location Count")]
+    [DisplayName( "Location Count" )]
     [Category( "Bricks and Mortar Studio" )]
-    [Description("Gives a count and lists the peopl in a location.")]
-    public partial class LocationCount : CheckInBlock
+    [Description( "A list of people in a location" )]
+
+    // ARRAN & TAYLOR: We can probs delete these two
+    [LinkedPage( "Family Select Page", "", false, "", "", 0 )]
+    [LinkedPage( "Scheduled Locations Page", "", false, "", "", 1 )]
+
+    [CodeEditorField( "Lava Template", "Lava template to use to display the package details.", CodeEditorMode.Lava, CodeEditorTheme.Rock, 400, true, @"", "", 2 )]
+    [BooleanField( "Enable Debug", "Display a list of merge fields available for lava.", false, "", 3 )]
+    public partial class LocationCount : RoomCountKioskBlock
     {
-        protected override void OnLoad( EventArgs e )
+        #region Control Methods
+        /// <summary>
+        /// Raises the <see cref="E:System.Web.UI.Control.Init" /> event.
+        /// </summary>
+        /// <param name="e">An <see cref="T:System.EventArgs" /> object that contains the event data.</param>
+        protected override void OnInit( EventArgs e )
         {
-            base.OnLoad( e );
+            base.OnInit( e );
 
             RockPage.AddScriptLink( "~/Scripts/iscroll.js" );
             RockPage.AddScriptLink( "~/Scripts/CheckinClient/checkin-core.js" );
 
-
-            var bodyTag = this.Page.Master.FindControl( "bodyTag" ) as HtmlGenericControl;
-            if ( bodyTag != null )
+            // ARRAN & TAYLOR: Do we want and logic or or logic here?
+            if ( CurrentKioskId == null && CurrentLocationId == null )
             {
-                bodyTag.AddCssClass( "checkin-personselect-bg" );
+                NavigateToParentPage();
+                return;
             }
 
-            if ( CurrentWorkflow == null || CurrentCheckInState == null )
+            RockPage.AddScriptLink( "~/scripts/jquery.plugin.min.js" );
+            RockPage.AddScriptLink( "~/scripts/jquery.countdown.min.js" );
+
+            RegisterScript();
+        }
+
+        /// <summary>
+        /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
+        /// </summary>
+        /// <param name="e">The <see cref="T:System.EventArgs" /> object that contains the event data.</param>
+        protected override void OnLoad( EventArgs e )
+        {
+            base.OnLoad( e );
+
+            // The Querystring can override the current device / location
+            if ( PageParameter( "DeviceId" ).AsIntegerOrNull().HasValue )
             {
-                NavigateToHomePage();
+                CurrentKioskId = PageParameter( "DeviceId" ).AsIntegerOrNull();
             }
-            else
+
+            if ( PageParameter( "LocationId" ).AsIntegerOrNull().HasValue )
             {
-                if ( !Page.IsPostBack )
+                CurrentLocationId = PageParameter( "LocationId" ).AsIntegerOrNull();
+            }
+
+            if ( !Page.IsPostBack && CurrentKioskId != null && CurrentLocationId != null )
+            {
+                string script = string.Format( @"
+    <script>
+        $(document).ready(function (e) {{
+            if (localStorage) {{
+                localStorage.theme = '{0}'
+                localStorage.checkInKiosk = '{1}';
+                localStorage.checkInLocation = '{2}';
+            }}
+        }});
+    </script>
+", CurrentTheme, CurrentKioskId, CurrentLocationId );
+                phScript.Controls.Add( new LiteralControl( script ) );
+                SaveState();
+                RefreshView();
+            }
+        }
+        #endregion
+
+        #region Events
+
+        /// <summary>
+        /// Handles the Click event of the lbRefresh control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void lbRefresh_Click( object sender, EventArgs e )
+        {
+            RefreshView();
+        }
+
+        /// <summary>
+        /// Handles the Click event of the btnManager control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void btnManager_Click( object sender, EventArgs e )
+        {
+            pnlActive.Visible = false;
+            pnlManager.Visible = false;
+            ManagerLoggedIn = false;
+            tbPIN.Text = string.Empty;
+
+            // Get room counts
+            List<int> locations = new List<int>();
+
+            var lUl = new HtmlGenericControl( "ul" );
+            lUl.AddCssClass( "kioskmanager-count-locations" );
+            phCounts.Controls.Add( lUl );
+            var device = new DeviceService( new RockContext() ).Get( CurrentKioskId.Value );
+            if ( device != null )
+            {
+                // Arran & Taylor: Do we include child locations?
+                foreach ( var location in device.Locations )
                 {
-                    ClearSelection();
-
-                    var family = CurrentCheckInState.CheckIn.CurrentFamily;
-                    if ( family == null )
+                    if ( !locations.Contains( location.Id ) )
                     {
-                        GoBack();
-                    }
+                        locations.Add( location.Id );
+                        var locationAttendance = KioskLocationAttendance.Read( location.Id );
 
-                    lFamilyName.Text = family.ToString();
-
-                    if ( family.People.Count == 1 )
-                    {
-                        if ( UserBackedUp )
+                        if ( locationAttendance != null )
                         {
-                            GoBack();
-                        }
-                        else
-                        {
-                            family.People.FirstOrDefault().Selected = true;
-                            ProcessSelection();
+                            var lLi = new HtmlGenericControl( "li" );
+                            lUl.Controls.Add( lLi );
+                            lLi.InnerHtml = string.Format( "<strong>{0}</strong>: {1}", locationAttendance.LocationName, locationAttendance.CurrentCount );
+
+                            var gUl = new HtmlGenericControl( "ul" );
+                            gUl.AddCssClass( "kioskmanager-count-groups" );
+                            lLi.Controls.Add( gUl );
+
+                            foreach ( var groupAttendance in locationAttendance.Groups )
+                            {
+                                var gLi = new HtmlGenericControl( "li" );
+                                gUl.Controls.Add( gLi );
+                                gLi.InnerHtml = string.Format( "<strong>{0}</strong>: {1}", groupAttendance.GroupName, groupAttendance.CurrentCount );
+
+                                var sUl = new HtmlGenericControl( "ul" );
+                                sUl.AddCssClass( "kioskmanager-count-schedules" );
+                                gLi.Controls.Add( sUl );
+
+                                foreach ( var scheduleAttendance in groupAttendance.Schedules.Where( s => s.IsActive ) )
+                                {
+                                    var sLi = new HtmlGenericControl( "li" );
+                                    sUl.Controls.Add( sLi );
+                                    sLi.InnerHtml = string.Format( "<strong>{0}</strong>: {1}", scheduleAttendance.ScheduleName, scheduleAttendance.CurrentCount );
+                                }
+                            }
                         }
                     }
-                    else
-                    {
-                        rSelection.DataSource = family.People
-                            .OrderByDescending( p => p.FamilyMember )
-                            .ThenBy( p => p.Person.BirthYear )
-                            .ThenBy( p => p.Person.BirthMonth )
-                            .ThenBy( p => p.Person.BirthDay )
-                            .ToList();
-
-                        rSelection.DataBind();
-                    }
-
                 }
+            }
+
+            pnlManagerLogin.Visible = true;
+
+            // set manager timer to 10 minutes
+            hfRefreshTimerSeconds.Value = "600";
+        }
+
+        /// <summary>
+        /// Handles the Click event of the btnBack control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void btnBack_Click( object sender, EventArgs e )
+        {
+            RefreshView();
+            ManagerLoggedIn = false;
+            pnlManager.Visible = false;
+        }
+
+        /// <summary>
+        /// Handles the Click event of the lbLogin control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void lbLogin_Click( object sender, EventArgs e )
+        {
+            ManagerLoggedIn = false;
+            var pinAuth = AuthenticationContainer.GetComponent( typeof( Rock.Security.Authentication.PINAuthentication ).FullName );
+            var rockContext = new Rock.Data.RockContext();
+            var userLoginService = new UserLoginService( rockContext );
+            var userLogin = userLoginService.GetByUserName( tbPIN.Text );
+            if ( userLogin != null && userLogin.EntityTypeId.HasValue )
+            {
+                // make sure this is a PIN auth user login
+                var userLoginEntityType = EntityTypeCache.Read( userLogin.EntityTypeId.Value );
+                if ( userLoginEntityType != null && userLoginEntityType.Id == pinAuth.EntityType.Id )
+                {
+                    if ( pinAuth != null && pinAuth.IsActive )
+                    {
+                        // should always return true, but just in case
+                        if ( pinAuth.Authenticate( userLogin, null ) )
+                        {
+                            if ( !( userLogin.IsConfirmed ?? true ) )
+                            {
+                                maWarning.Show( "Sorry, account needs to be confirmed.", Rock.Web.UI.Controls.ModalAlertType.Warning );
+                            }
+                            else if ( ( userLogin.IsLockedOut ?? false ) )
+                            {
+                                maWarning.Show( "Sorry, account is locked-out.", Rock.Web.UI.Controls.ModalAlertType.Warning );
+                            }
+                            else
+                            {
+                                ManagerLoggedIn = true;
+                                ShowManagementDetails();
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
+            maWarning.Show( "Sorry, we couldn't find an account matching that PIN.", Rock.Web.UI.Controls.ModalAlertType.Warning );
+        }
+
+        /// <summary>
+        /// Handles the ItemCommand event of the rLocations control.
+        /// </summary>
+        /// <param name="source">The source of the event.</param>
+        /// <param name="e">The <see cref="System.Web.UI.WebControls.RepeaterCommandEventArgs"/> instance containing the event data.</param>
+        protected void rLocations_ItemCommand( object source, System.Web.UI.WebControls.RepeaterCommandEventArgs e )
+        {
+            int? locationId = ( e.CommandArgument as string ).AsIntegerOrNull();
+
+            if ( locationId.HasValue )
+            {
+                var rockContext = new RockContext();
+                var location = new LocationService( rockContext ).Get( locationId.Value );
+                if ( location != null )
+                {
+                    if ( e.CommandName == "Open" && !location.IsActive )
+                    {
+                        location.IsActive = true;
+                        rockContext.SaveChanges();
+                        KioskDevice.FlushAll();
+                    }
+                    else if ( e.CommandName == "Close" && location.IsActive )
+                    {
+                        location.IsActive = false;
+                        rockContext.SaveChanges();
+                        KioskDevice.FlushAll();
+                    }
+                }
+
+                BindManagerLocationsGrid();
             }
         }
 
         /// <summary>
-        /// Clear any previously selected people.
+        /// Handles the ItemDataBound event of the rLocations control.
         /// </summary>
-        private void ClearSelection()
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="System.Web.UI.WebControls.RepeaterItemEventArgs"/> instance containing the event data.</param>
+        protected void rLocations_ItemDataBound( object sender, System.Web.UI.WebControls.RepeaterItemEventArgs e )
         {
-            foreach ( var family in CurrentCheckInState.CheckIn.Families )
+            object locationDataItem = e.Item.DataItem;
+            if ( locationDataItem != null )
             {
-                foreach ( var person in family.People )
+                var lbOpen = e.Item.FindControl( "lbOpen" ) as LinkButton;
+                var lbClose = e.Item.FindControl( "lbClose" ) as LinkButton;
+                var isActive = (bool)locationDataItem.GetPropertyValue( "IsActive" );
+
+                if ( isActive )
                 {
-                    person.ClearFilteredExclusions();
-                    person.Selected = false;
+                    lbClose.RemoveCssClass( "btn-danger" );
+                    lbClose.RemoveCssClass( "active" );
+                    lbOpen.AddCssClass( "btn-success" );
+                    lbOpen.AddCssClass( "active" );
                 }
+                else
+                {
+                    lbOpen.RemoveCssClass( "btn-success" );
+                    lbOpen.RemoveCssClass( "active" );
+                    lbClose.AddCssClass( "btn-danger" );
+                    lbClose.AddCssClass( "active" );
+                }
+
+                var lLocationName = e.Item.FindControl( "lLocationName" ) as Literal;
+                lLocationName.Text = locationDataItem.GetPropertyValue( "Name" ) as string;
+
+                var lLocationCount = e.Item.FindControl( "lLocationCount" ) as Literal;
+                lLocationCount.Text = KioskLocationAttendance.Read( (int)locationDataItem.GetPropertyValue( "LocationId" ) ).CurrentCount.ToString();
             }
         }
 
-        protected void rSelection_ItemCommand( object source, RepeaterCommandEventArgs e )
-        {
-            if ( KioskCurrentlyActive )
-            {
-                int id = Int32.Parse( e.CommandArgument.ToString() );
-                var person = CurrentCheckInState.CheckIn.Families.Where( f => f.Selected )
-                    .SelectMany( f => f.People.Where( p => p.Person.Id == id ) )
-                    .FirstOrDefault();
-
-                if ( person != null )
-                {
-                    person.Selected = true;
-                    ProcessSelection();
-                }
-            }
-        }
-
-        protected void lbBack_Click( object sender, EventArgs e )
-        {
-            GoBack();
-        }
-
+        /// <summary>
+        /// Handles the Click event of the lbCancel control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void lbCancel_Click( object sender, EventArgs e )
         {
-            CancelCheckin();
+            btnBack_Click( sender, e );
         }
 
-        protected void rSelection_ItemDataBound( object sender, RepeaterItemEventArgs e )
+        /// <summary>
+        /// Handles the SelectedIndexChanged event of the ddlLocation control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void ddlLocation_SelectedIndexChanged( object sender, EventArgs e )
         {
-            var person = e.Item.DataItem as CheckInPerson;
+            NavigateToPage( RockPage.Guid, new Dictionary<string, string>() { { "DeviceId", PageParameter("DeviceId") }, { "LocationId", ddlLocation.SelectedValue } } );
+        }
 
-            if ( ! string.IsNullOrEmpty( person.SecurityCode ) )
+        #endregion
+
+        #region Methods
+
+        /// <summary>
+        /// Registers the script.
+        /// </summary>
+        private void RegisterScript()
+        {
+            // Note: the OnExpiry property of the countdown jquery plugin seems to add a new callback
+            // everytime the setting is set which is why the clearCountdown method is used to prevent 
+            // a plethora of partial postbacks occurring when the countdown expires.
+            string script = string.Format( @"
+
+var timeoutSeconds = $('.js-refresh-timer-seconds').val();
+if (timeout) {{
+    window.clearTimeout(timeout);
+}}
+var timeout = window.setTimeout(refreshKiosk, timeoutSeconds * 1000);
+
+var $ActiveWhen = $('.active-when');
+var $CountdownTimer = $('.countdown-timer');
+
+function refreshKiosk() {{
+    window.clearTimeout(timeout);
+    {0};
+}}
+
+function clearCountdown() {{
+    if ($ActiveWhen.text() != '')
+    {{
+        $ActiveWhen.text('');
+        refreshKiosk();
+    }}
+}}
+
+if ($ActiveWhen.text() != '')
+{{
+    var timeActive = new Date($ActiveWhen.text());
+    $CountdownTimer.countdown({{
+        until: timeActive, 
+        compact:true, 
+        onExpiry: clearCountdown
+    }});
+}}
+
+", this.Page.ClientScript.GetPostBackEventReference( lbRefresh, "" ) );
+            ScriptManager.RegisterStartupScript( Page, Page.GetType(), "RefreshScript", script, true );
+        }
+
+        /// <summary>
+        /// Refreshes the view.
+        /// </summary>
+        private void RefreshView()
+        {
+            hfRefreshTimerSeconds.Value = "10";
+            ManagerLoggedIn = false;
+            pnlActive.Visible = false;
+            pnlManagerLogin.Visible = false;
+            pnlManager.Visible = false;
+            btnManager.Visible = true;
+
+            lblActiveWhen.Text = string.Empty;
+
+            // ARRAN & TAYLOR: and or or logic here
+            if ( ( CurrentKioskId == null && CurrentLocationId == null ) || IsMobileAndExpiredDevice() )
             {
-                var linkButton = e.Item.FindControl( "lbSelect" ) as LinkButton;
-                linkButton.AddCssClass( "btn-dimmed" );
+                NavigateToParentPage();
+                return;
+            }
+
+            pnlActive.Visible = true;
+
+            var currentPeople = KioskLocationAttendance.Read( CurrentLocationId.Value );
+
+            var mergeFields = Rock.Lava.LavaHelper.GetCommonMergeFields( this.RockPage, this.CurrentPerson );
+
+            // add link to detail page
+            Dictionary<string, object> linkedPages = new Dictionary<string, object>();
+            mergeFields.Add( "PersonIds", currentPeople.DistinctPersonIds );
+            mergeFields.Add( "LocationCount", currentPeople.CurrentCount );
+            mergeFields.Add( "CurrentKioskId", CurrentKioskId );
+            mergeFields.Add( "CurrentLocationId", CurrentLocationId );
+
+            lOutput.Text = GetAttributeValue( "LavaTemplate" ).ResolveMergeFields( mergeFields );
+
+            // show debug info
+            if ( GetAttributeValue( "EnableDebug" ).AsBoolean() && IsUserAuthorized( Authorization.EDIT ) )
+            {
+                lDebug.Visible = true;
+                lDebug.Text = mergeFields.lavaDebugInfo();
             }
         }
 
-        protected void ProcessSelection()
+        /// <summary>
+        /// Determines if the device is "mobile" and if it is no longer valid.
+        /// </summary>
+        /// <returns>true if the mobile device has expired; false otherwise.</returns>
+        private bool IsMobileAndExpiredDevice()
         {
-            ProcessSelection( 
-                maWarning, 
-                () => CurrentCheckInState.CheckIn.CurrentFamily.GetPeople( true )
-                    .SelectMany( p => p.GroupTypes.Where( t => !t.ExcludedByFilter ) )
-                    .Count() <= 0,
-                "<p>Sorry, based on your selection, there are currently not any available locations that can be checked into.</p>" );
+            if ( Request.Cookies[RoomKioskCookie.ISMOBILE] != null
+                && Request.Cookies[RoomKioskCookie.DEVICEID] == null )
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+
         }
 
+        /// <summary>
+        /// Shows the management details.
+        /// </summary>
+        private void ShowManagementDetails()
+        {
+            pnlManagerLogin.Visible = false;
+            pnlManager.Visible = true;
+            btnManager.Visible = false;
+            BindManagerLocationsGrid();
+        }
+
+        /// <summary>
+        /// Binds the manager locations grid.
+        /// </summary>
+        private void BindManagerLocationsGrid()
+        {
+            var rockContext = new RockContext();
+            if ( this.CurrentKioskId.HasValue )
+            {
+                var device = new DeviceService( rockContext ).Get( CurrentKioskId.Value );
+                if ( device != null )
+                {
+                    // ARRAN & TAYLOR: Do we want to include child locations or not? 
+                    ddlLocation.DataSource = device.Locations;
+                    ddlLocation.DataTextField = "Name";
+                    ddlLocation.DataValueField = "Id";
+                    ddlLocation.DataBind();
+                    if ( CurrentLocationId != null )
+                    {
+                        ddlLocation.SetValue( CurrentLocationId );
+                    }
+                }
+            }
+        }
+
+        #endregion
     }
 }
