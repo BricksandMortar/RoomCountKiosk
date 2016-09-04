@@ -129,6 +129,7 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                         if ( kiosk != null )
                         {
                             // ARRAN & TAYLOR: Do we want to include child locations or not? 
+                            // RESPONSE: Include child locations
                             ddlLocation.DataSource = kiosk.Locations;
                             ddlLocation.DataTextField = "Name";
                             ddlLocation.DataValueField = "Id";

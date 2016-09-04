@@ -1,4 +1,4 @@
-// <copyright>
+﻿// <copyright>
 // Copyright by Bricks and Mortar
 //
 // Licensed under the Rock Community License (the "License");
@@ -37,8 +37,6 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
     [Description( "A list of people in a location" )]
 
     // ARRAN & TAYLOR: We can probs delete these two
-    [LinkedPage( "Family Select Page", "", false, "", "", 0 )]
-    [LinkedPage( "Scheduled Locations Page", "", false, "", "", 1 )]
 
     [CodeEditorField( "Lava Template", "Lava template to use to display the package details.", CodeEditorMode.Lava, CodeEditorTheme.Rock, 400, true, @"", "", 2 )]
     [BooleanField( "Enable Debug", "Display a list of merge fields available for lava.", false, "", 3 )]
@@ -57,6 +55,7 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
             RockPage.AddScriptLink( "~/Scripts/CheckinClient/checkin-core.js" );
 
             // ARRAN & TAYLOR: Do we want and logic or or logic here?
+            // RESPONSE: or logic
             if ( CurrentKioskId == null && CurrentLocationId == null )
             {
                 NavigateToParentPage();
@@ -142,6 +141,7 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
             if ( device != null )
             {
                 // Arran & Taylor: Do we include child locations?
+                // RESPONSE: Include child locations
                 foreach ( var location in device.Locations )
                 {
                     if ( !locations.Contains( location.Id ) )
@@ -399,6 +399,8 @@ if ($ActiveWhen.text() != '')
             lblActiveWhen.Text = string.Empty;
 
             // ARRAN & TAYLOR: and or or logic here
+            // Response: Don't worry about mobiles, this is designed to be wall mounted! 
+            // Response: Use or logic.
             if ( ( CurrentKioskId == null && CurrentLocationId == null ) || IsMobileAndExpiredDevice() )
             {
                 NavigateToParentPage();
@@ -469,6 +471,7 @@ if ($ActiveWhen.text() != '')
                 if ( device != null )
                 {
                     // ARRAN & TAYLOR: Do we want to include child locations or not? 
+                    // RESPONSE: Include child locations
                     ddlLocation.DataSource = device.Locations;
                     ddlLocation.DataTextField = "Name";
                     ddlLocation.DataValueField = "Id";
