@@ -37,7 +37,14 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
     [Description( "A list of people in a location" )]
 
     [CodeEditorField( "Lava Template", "Lava template to use to display the package details.", CodeEditorMode.Lava, CodeEditorTheme.Rock, 400, true, @"", "", 2 )]
-    [BooleanField( "Enable Debug", "Display a list of merge fields available for lava.", false, "", 3 )]
+    [BooleanField( "Enable Debug", "Display a list of merge fields available for lava.", false, @"<h4>{{LocationCount}} Children in the Room</h4>
+    <h5>Children in the Room</h5>
+    <ul class=""no - bullets"">
+	    {% for personId in PersonIds}
+		    {% assign person = personId | PersonById}
+		    <li>{{person.FullName}}</li>
+	    {% endfor %}
+    </ul>", 3 )]
     public partial class LocationCount : RoomCountKioskBlock
     {
         #region Control Methods
