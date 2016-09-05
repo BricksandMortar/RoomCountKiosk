@@ -36,8 +36,6 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
     [Category( "Bricks and Mortar Studio" )]
     [Description( "A list of people in a location" )]
 
-    // ARRAN & TAYLOR: We can probs delete these two
-
     [CodeEditorField( "Lava Template", "Lava template to use to display the package details.", CodeEditorMode.Lava, CodeEditorTheme.Rock, 400, true, @"", "", 2 )]
     [BooleanField( "Enable Debug", "Display a list of merge fields available for lava.", false, "", 3 )]
     public partial class LocationCount : RoomCountKioskBlock
@@ -54,9 +52,18 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
             RockPage.AddScriptLink( "~/Scripts/iscroll.js" );
             RockPage.AddScriptLink( "~/Scripts/CheckinClient/checkin-core.js" );
 
-            // ARRAN & TAYLOR: Do we want and logic or or logic here?
-            // RESPONSE: or logic
-            if ( CurrentKioskId == null && CurrentLocationId == null )
+            // The Querystring can override the current device / location
+            if ( PageParameter( "DeviceId" ).AsIntegerOrNull().HasValue )
+            {
+                CurrentKioskId = PageParameter( "DeviceId" ).AsIntegerOrNull();
+            }
+
+            if ( PageParameter( "LocationId" ).AsIntegerOrNull().HasValue )
+            {
+                CurrentLocationId = PageParameter( "LocationId" ).AsIntegerOrNull();
+            }
+
+            if ( CurrentKioskId == null || CurrentLocationId == null )
             {
                 NavigateToParentPage();
                 return;
@@ -75,17 +82,6 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
         protected override void OnLoad( EventArgs e )
         {
             base.OnLoad( e );
-
-            // The Querystring can override the current device / location
-            if ( PageParameter( "DeviceId" ).AsIntegerOrNull().HasValue )
-            {
-                CurrentKioskId = PageParameter( "DeviceId" ).AsIntegerOrNull();
-            }
-
-            if ( PageParameter( "LocationId" ).AsIntegerOrNull().HasValue )
-            {
-                CurrentLocationId = PageParameter( "LocationId" ).AsIntegerOrNull();
-            }
 
             if ( !Page.IsPostBack && CurrentKioskId != null && CurrentLocationId != null )
             {
@@ -126,6 +122,7 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void btnManager_Click( object sender, EventArgs e )
         {
+            var rockContext = new RockContext();
             pnlActive.Visible = false;
             pnlManager.Visible = false;
             ManagerLoggedIn = false;
@@ -137,12 +134,18 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
             var lUl = new HtmlGenericControl( "ul" );
             lUl.AddCssClass( "kioskmanager-count-locations" );
             phCounts.Controls.Add( lUl );
-            var device = new DeviceService( new RockContext() ).Get( CurrentKioskId.Value );
+            var device = new DeviceService( rockContext ).Get( CurrentKioskId.Value );
             if ( device != null )
             {
-                // Arran & Taylor: Do we include child locations?
-                // RESPONSE: Include child locations
+                var deviceLocations = new List<Location>();
+                var locationService = new LocationService( rockContext );
                 foreach ( var location in device.Locations )
+                {
+                    deviceLocations.Add( location );
+                    deviceLocations.AddRange( locationService.GetAllDescendents( location.Id ) );
+                }
+
+                foreach ( var location in deviceLocations.Distinct().ToList() )
                 {
                     if ( !locations.Contains( location.Id ) )
                     {
@@ -331,7 +334,7 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void ddlLocation_SelectedIndexChanged( object sender, EventArgs e )
         {
-            NavigateToPage( RockPage.Guid, new Dictionary<string, string>() { { "DeviceId", PageParameter("DeviceId") }, { "LocationId", ddlLocation.SelectedValue } } );
+            NavigateToPage( RockPage.Guid, new Dictionary<string, string>() { { "DeviceId", PageParameter( "DeviceId" ) }, { "LocationId", ddlLocation.SelectedValue } } );
         }
 
         #endregion
@@ -398,10 +401,7 @@ if ($ActiveWhen.text() != '')
 
             lblActiveWhen.Text = string.Empty;
 
-            // ARRAN & TAYLOR: and or or logic here
-            // Response: Don't worry about mobiles, this is designed to be wall mounted! 
-            // Response: Use or logic.
-            if ( ( CurrentKioskId == null && CurrentLocationId == null ) || IsMobileAndExpiredDevice() )
+            if ( CurrentKioskId == null || CurrentLocationId == null )
             {
                 NavigateToParentPage();
                 return;
@@ -431,24 +431,6 @@ if ($ActiveWhen.text() != '')
         }
 
         /// <summary>
-        /// Determines if the device is "mobile" and if it is no longer valid.
-        /// </summary>
-        /// <returns>true if the mobile device has expired; false otherwise.</returns>
-        private bool IsMobileAndExpiredDevice()
-        {
-            if ( Request.Cookies[RoomKioskCookie.ISMOBILE] != null
-                && Request.Cookies[RoomKioskCookie.DEVICEID] == null )
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-
-        }
-
-        /// <summary>
         /// Shows the management details.
         /// </summary>
         private void ShowManagementDetails()
@@ -470,9 +452,15 @@ if ($ActiveWhen.text() != '')
                 var device = new DeviceService( rockContext ).Get( CurrentKioskId.Value );
                 if ( device != null )
                 {
-                    // ARRAN & TAYLOR: Do we want to include child locations or not? 
-                    // RESPONSE: Include child locations
-                    ddlLocation.DataSource = device.Locations;
+                    var deviceLocations = new List<Location>();
+                    var locationService = new LocationService( rockContext );
+                    foreach ( var location in device.Locations )
+                    {
+                        deviceLocations.Add( location );
+                        deviceLocations.AddRange( locationService.GetAllDescendents( location.Id ) );
+                    }
+
+                    ddlLocation.DataSource = deviceLocations.Distinct().ToList();
                     ddlLocation.DataTextField = "Name";
                     ddlLocation.DataValueField = "Id";
                     ddlLocation.DataBind();

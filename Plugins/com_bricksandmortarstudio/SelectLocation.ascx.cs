@@ -128,9 +128,14 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                         var kiosk = deviceService.Get( ddlKiosk.SelectedValue.AsInteger() );
                         if ( kiosk != null )
                         {
-                            // ARRAN & TAYLOR: Do we want to include child locations or not? 
-                            // RESPONSE: Include child locations
-                            ddlLocation.DataSource = kiosk.Locations;
+                            var kioskLocations = new List<Location>();
+                            var locationService = new LocationService( rockContext );
+                            foreach ( var location in kiosk.Locations )
+                            {
+                                kioskLocations.Add( location );
+                                kioskLocations.AddRange( locationService.GetAllDescendents( location.Id ) );
+                            }
+                            ddlLocation.DataSource = kioskLocations.Distinct().ToList();
                             ddlLocation.DataTextField = "Name";
                             ddlLocation.DataValueField = "Id";
                             ddlLocation.DataBind();

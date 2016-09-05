@@ -54,18 +54,8 @@
 
         <%-- Panel for active checkin --%>
         <asp:Panel ID="pnlActive" runat="server">
-
-            <div class="checkin-body">
-                <div class="checkin-scroll-panel">
-                    <div class="scroller">
-                        <div class="checkin-search-actions checkin-start">
-                            <asp:Literal ID="lOutput" runat="server" Visible="true" />
-                            <asp:Literal ID="lDebug" runat="server" Visible="false" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+            <asp:Literal ID="lOutput" runat="server" Visible="true" />
+            <asp:Literal ID="lDebug" runat="server" Visible="false" />
         </asp:Panel>
 
         <asp:LinkButton runat="server" ID="btnManager" CssClass="kioskmanager-activate" OnClick="btnManager_Click"><i class="fa fa-cog fa-4x"></i></asp:LinkButton>
@@ -75,7 +65,7 @@
             <div class="checkin-header">
                 <h1>Locations</h1>
             </div>
-            <Rock:RockDropDownList ID="ddlLocation" runat="server" CssClass="input-xlarge" OnSelectedIndexChanged="ddlLocation_SelectedIndexChanged" />
+            <Rock:RockDropDownList ID="ddlLocation" runat="server" CssClass="input-xlarge" OnSelectedIndexChanged="ddlLocation_SelectedIndexChanged" AutoPostBack="true" />
 
             <div class="controls kioskmanager-actions checkin-actions">
                 <asp:LinkButton ID="btnBack" runat="server" CssClass="btn btn-default btn-large btn-block btn-checkin-select" Text="Back" OnClick="btnBack_Click" />
