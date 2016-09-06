@@ -135,7 +135,13 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                                 kioskLocations.Add( location );
                                 kioskLocations.AddRange( locationService.GetAllDescendents( location.Id ) );
                             }
-                            ddlLocation.DataSource = kioskLocations.Distinct().ToList();
+
+                            kioskLocations = kioskLocations
+                                .Where( l => l.LocationTypeValue == null || l.LocationTypeValue.Guid == Rock.SystemGuid.DefinedValue.LOCATION_TYPE_ROOM.AsGuid() )
+                                .Distinct()
+                                .ToList();
+
+                            ddlLocation.DataSource = kioskLocations;
                             ddlLocation.DataTextField = "Name";
                             ddlLocation.DataValueField = "Id";
                             ddlLocation.DataBind();

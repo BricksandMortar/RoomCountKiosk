@@ -40,8 +40,8 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
     [BooleanField( "Enable Debug", "Display a list of merge fields available for lava.", false, @"<h4>{{LocationCount}} Children in the Room</h4>
     <h5>Children in the Room</h5>
     <ul class=""no - bullets"">
-	    {% for personId in PersonIds}
-		    {% assign person = personId | PersonById}
+	    {% for personId in PersonIds %}
+		    {% assign person = personId | PersonById %}
 		    <li>{{person.FullName}}</li>
 	    {% endfor %}
     </ul>", 3 )]
@@ -152,7 +152,11 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                     deviceLocations.AddRange( locationService.GetAllDescendents( location.Id ) );
                 }
 
-                foreach ( var location in deviceLocations.Distinct().ToList() )
+                deviceLocations = deviceLocations
+                    .Where( l => l.LocationTypeValue == null || l.LocationTypeValue.Guid == Rock.SystemGuid.DefinedValue.LOCATION_TYPE_ROOM.AsGuid() )
+                    .Distinct()
+                    .ToList();
+                foreach ( var location in deviceLocations)
                 {
                     if ( !locations.Contains( location.Id ) )
                     {
@@ -467,7 +471,12 @@ if ($ActiveWhen.text() != '')
                         deviceLocations.AddRange( locationService.GetAllDescendents( location.Id ) );
                     }
 
-                    ddlLocation.DataSource = deviceLocations.Distinct().ToList();
+                    deviceLocations = deviceLocations
+                    .Where( l => l.LocationTypeValue == null || l.LocationTypeValue.Guid == Rock.SystemGuid.DefinedValue.LOCATION_TYPE_ROOM.AsGuid() )
+                    .Distinct()
+                    .ToList();
+
+                    ddlLocation.DataSource = deviceLocations;
                     ddlLocation.DataTextField = "Name";
                     ddlLocation.DataValueField = "Id";
                     ddlLocation.DataBind();
