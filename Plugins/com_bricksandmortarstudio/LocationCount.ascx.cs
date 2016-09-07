@@ -156,7 +156,8 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                     .Where( l => l.LocationTypeValue == null || l.LocationTypeValue.Guid == Rock.SystemGuid.DefinedValue.LOCATION_TYPE_ROOM.AsGuid() )
                     .Distinct()
                     .ToList();
-                foreach ( var location in deviceLocations)
+
+                foreach ( var location in deviceLocations )
                 {
                     if ( !locations.Contains( location.Id ) )
                     {
@@ -173,6 +174,8 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                             gUl.AddCssClass( "kioskmanager-count-groups" );
                             lLi.Controls.Add( gUl );
 
+                            // ARRAN: If we only want to show the count of people in the room, and not further split it into groups and schedules, we need to remove this.
+                            // I've tested both with and without it, so removing it is ok.
                             foreach ( var groupAttendance in locationAttendance.Groups )
                             {
                                 var gLi = new HtmlGenericControl( "li" );
@@ -190,6 +193,7 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                                     sLi.InnerHtml = string.Format( "<strong>{0}</strong>: {1}", scheduleAttendance.ScheduleName, scheduleAttendance.CurrentCount );
                                 }
                             }
+                            // Remove up to here
                         }
                     }
                 }

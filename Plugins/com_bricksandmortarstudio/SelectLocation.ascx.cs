@@ -90,12 +90,12 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                         $(document).ready(function (e) {{
                             if (localStorage) {{
                                 if (localStorage.checkInKiosk) {{
-                                    $('[id$=""hfKiosk""]').val(localStorage.com.bricksandmortarstudio.kiosk);
+                                    $('[id$=""hfKiosk""]').val(localStorage.kiosk);
                                     if (localStorage.theme) {{
-                                        $('[id$=""hfTheme""]').val(localStorage.com.bricksandmortarstudio.theme);
+                                        $('[id$=""hfTheme""]').val(localStorage.theme);
                                     }}
-                                    if (localStorage.location) {{
-                                        $('[id$=""hfLocation""]').val(localStorage.com.bricksandmortarstudio.location);
+                                    if (localStorage.checkInLocation) {{
+                                        $('[id$=""hfLocation""]').val(localStorage.checkInLocation);
                                     }}
                                     {0};
                                 }}
@@ -229,6 +229,11 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                 CurrentTheme = hfTheme.Value;
                 RedirectToNewTheme( hfTheme.Value );
             }
+            else
+            {
+                ddlKiosk.SetValue( hfKiosk.Value );
+                BindLocationDropdown();
+            }
         }
 
         #region GeoLocation related
@@ -328,13 +333,13 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
 
         protected void lbOk_Click( object sender, EventArgs e )
         {
-            if ( ddlKiosk.SelectedValue == None.IdValue )
+            if ( ddlKiosk.SelectedValue == None.IdValue || String.IsNullOrWhiteSpace( ddlKiosk.SelectedValue ) )
             {
                 maWarning.Show( "A Device needs to be selected!", ModalAlertType.Warning );
                 return;
             }
 
-            if ( ddlLocation.SelectedValue == None.IdValue )
+            if ( ddlLocation.SelectedValue == None.IdValue || String.IsNullOrWhiteSpace( ddlLocation.SelectedValue ) )
             {
                 maWarning.Show( "A Location needs to be selected!", ModalAlertType.Warning );
                 return;
