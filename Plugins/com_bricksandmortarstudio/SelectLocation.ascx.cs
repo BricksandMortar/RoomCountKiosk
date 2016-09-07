@@ -128,27 +128,8 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                         var kiosk = deviceService.Get( ddlKiosk.SelectedValue.AsInteger() );
                         if ( kiosk != null )
                         {
-                            var kioskLocations = new List<Location>();
-                            var locationService = new LocationService( rockContext );
-                            foreach ( var location in kiosk.Locations )
-                            {
-                                kioskLocations.Add( location );
-                                kioskLocations.AddRange( locationService.GetAllDescendents( location.Id ) );
-                            }
-
-                            kioskLocations = kioskLocations
-                                .Where( l => l.LocationTypeValue == null || l.LocationTypeValue.Guid == Rock.SystemGuid.DefinedValue.LOCATION_TYPE_ROOM.AsGuid() )
-                                .Distinct()
-                                .ToList();
-
-                            ddlLocation.DataSource = kioskLocations;
-                            ddlLocation.DataTextField = "Name";
-                            ddlLocation.DataValueField = "Id";
-                            ddlLocation.DataBind();
-                            if ( CurrentLocationId != null )
-                            {
-                                ddlLocation.SetValue( CurrentLocationId );
-                            }
+                            CurrentKioskId = ddlKiosk.SelectedValue.AsInteger();
+                            BindLocationDropdown();
                         }
                     }
                 }
@@ -181,6 +162,8 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
                 {
                     ClearMobileCookie();
                     CurrentKioskId = device.Id;
+
+                    BindLocationDropdown();
 
                     SaveState();
                     NavigateToNextPage();
@@ -345,6 +328,12 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
 
         protected void lbOk_Click( object sender, EventArgs e )
         {
+            if ( ddlKiosk.SelectedValue == None.IdValue )
+            {
+                maWarning.Show( "A Device needs to be selected!", ModalAlertType.Warning );
+                return;
+            }
+
             if ( ddlLocation.SelectedValue == None.IdValue )
             {
                 maWarning.Show( "A Location needs to be selected!", ModalAlertType.Warning );
@@ -372,11 +361,31 @@ namespace com.bricksandmortarstudio.RoomCountKiosk
         {
             if ( CurrentKioskId != null )
             {
-                var device = new DeviceService( new RockContext() ).Get( CurrentKioskId.Value );
+                var rockContext = new RockContext();
+                var device = new DeviceService( rockContext ).Get( CurrentKioskId.Value );
                 if ( device != null )
                 {
-                    ddlLocation.DataSource = device.Locations;
+                    var deviceLocations = new List<Location>();
+                    var locationService = new LocationService( rockContext );
+                    foreach ( var location in device.Locations )
+                    {
+                        deviceLocations.Add( location );
+                        deviceLocations.AddRange( locationService.GetAllDescendents( location.Id ) );
+                    }
+
+                    deviceLocations = deviceLocations
+                        .Where( l => l.LocationTypeValue == null || l.LocationTypeValue.Guid == Rock.SystemGuid.DefinedValue.LOCATION_TYPE_ROOM.AsGuid() )
+                        .Distinct()
+                        .ToList();
+
+                    ddlLocation.DataSource = deviceLocations;
+                    ddlLocation.DataTextField = "Name";
+                    ddlLocation.DataValueField = "Id";
                     ddlLocation.DataBind();
+                    if ( CurrentLocationId != null )
+                    {
+                        ddlLocation.SetValue( CurrentLocationId );
+                    }
                 }
             }
         }
